@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>金融信息聚合平台 · Finance Hub</title>
+<link rel="stylesheet" href="/css/app.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>📊</text></svg>">
+</head>
+<body>
+
+<!-- ============ 顶栏 ============ -->
+<header class="topbar">
+  <div class="brand">
+    <div class="brand-mark">FH</div>
+    <div class="brand-text">
+      <div class="brand-name">金融信息聚合平台</div>
+      <div class="brand-sub">Finance Hub · 新股 · 财报 · 市场分析</div>
+    </div>
+  </div>
+
+  <nav class="nav" id="mainNav">
+    <button class="nav-item active" data-view="overview">
+      <span class="nav-ico">◉</span><span>总览</span>
+    </button>
+    <button class="nav-item" data-view="ipo">
+      <span class="nav-ico">◈</span><span>新股消息</span>
+      <span class="nav-badge" id="navBadgeIpo"></span>
+    </button>
+    <button class="nav-item" data-view="iponews">
+      <span class="nav-ico">☰</span><span>新股资讯</span>
+    </button>
+    <button class="nav-item" data-view="stocks">
+      <span class="nav-ico">▦</span><span>股票列表</span>
+    </button>
+    <button class="nav-item" data-view="recommend">
+      <span class="nav-ico">★</span><span>推荐榜单</span>
+    </button>
+    <button class="nav-item" data-view="picker">
+      <span class="nav-ico">✦</span><span>AI 选股</span>
+      <span class="nav-badge" id="navBadgePicker"></span>
+    </button>
+    <button class="nav-item" data-view="gmarkets">
+      <span class="nav-ico">◈</span><span>全球行情</span>
+    </button>
+    <button class="nav-item" data-view="worlddesk">
+      <span class="nav-ico">◉</span><span>国际形势</span>
+    </button>
+    <button class="nav-item" data-view="finance">
+      <span class="nav-ico">▤</span><span>财报整理</span>
+    </button>
+    <button class="nav-item" data-view="market">
+      <span class="nav-ico">◑</span><span>市场分析</span>
+    </button>
+    <button class="nav-item" data-view="appendix">
+      <span class="nav-ico">§</span><span>附录</span>
+    </button>
+  </nav>
+
+  <div class="topbar-right">
+    <div class="datasource" id="datasource" title="数据源状态">
+      <span class="dot dot-wait" id="dsDot"></span>
+      <span id="dsText">连接中…</span>
+    </div>
+    <button class="btn btn-ghost" id="btnRefresh" title="刷新当前视图数据">
+      <span class="ico">⟳</span> 刷新
+    </button>
+    <button class="btn btn-bell" id="btnBell" title="通知中心">
+      <span class="ico">🔔</span>
+      <span class="belldot" id="bellCount" hidden>0</span>
+    </button>
+  </div>
+</header>
+
+<!-- ============ 主体 ============ -->
+<main class="main" id="main">
+
+  <!-- 视图：总览 -->
+  <section class="view active" id="view-overview">
+    <div class="view-head">
+      <div>
+        <h1>市场总览</h1>
+        <p class="view-sub" id="ovSub">正在加载实时数据…</p>
+      </div>
+      <button class="btn btn-primary" id="ovReport">导出市场报告</button>
+    </div>
+    <div class="kpi-row" id="ovKpis"></div>
+    <div class="grid grid-2">
+      <div class="card"><div class="card-head"><h2>主要指数</h2><span class="card-sub" id="ovIdxTime"></span></div><div id="ovIndices"></div></div>
+      <div class="card"><div class="card-head"><h2>涨跌分布</h2><span class="card-sub">沪深 A 股全市场</span></div><div class="chart-box h240"><canvas id="ovBreadthChart"></canvas></div></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card"><div class="card-head"><h2>市场画像评分</h2><span class="card-sub" id="ovProfDate"></span></div><div class="chart-box h300"><canvas id="ovProfileChart"></canvas></div></div>
+      <div class="card"><div class="card-head"><h2>行业板块涨幅榜</h2><span class="card-sub">TOP 8</span></div><div id="ovSectors"></div></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card"><div class="card-head"><h2>新股动态</h2><a class="card-link" data-goto="ipo">查看全部 →</a></div><div id="ovIpo"></div></div>
+      <div class="card"><div class="card-head"><h2>最新提醒</h2><a class="card-link" id="ovOpenBell">打开通知中心 →</a></div><div id="ovNotices"></div></div>
+    </div>
+  </section>
+
+  <!-- 视图：新股消息 -->
+  <section class="view" id="view-ipo">
+    <div class="view-head">
+      <div>
+        <h1>新股消息</h1>
+        <p class="view-sub">自动收集沪深 / 港股 / 美股新股发行信息，点击股票名称可查看该股资讯详情，支持订阅推送提醒</p>
+      </div>
+      <div class="seg" id="ipoMarketSeg">
+        <button class="seg-item active" data-market="hs">沪深</button>
+        <button class="seg-item" data-market="hk">港股</button>
+        <button class="seg-item" data-market="us">美股</button>
+      </div>
+    </div>
+    <div class="kpi-row" id="ipoKpis"></div>
+    <div class="card">
+      <div class="card-head">
+        <h2>发行阶段看板</h2>
+        <span class="card-sub">按申购/上市进度自动归类</span>
+      </div>
+      <div id="ipoStages" class="stage-board"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2>新股明细</h2>
+        <div class="card-tools">
+          <input class="input input-sm" id="ipoSearch" placeholder="搜索名称 / 代码 / 行业">
+          <select class="input input-sm" id="ipoStageFilter"><option value="">全部阶段</option></select>
+        </div>
+      </div>
+      <div id="ipoTable" class="table-wrap"></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card"><div class="card-head"><h2>未来上市日程</h2><span class="card-sub">按上市日排列</span></div><div id="ipoTimeline" class="timeline"></div></div>
+      <div class="card"><div class="card-head"><h2>发行价分布</h2><span class="card-sub">单位：元</span></div><div class="chart-box h260"><canvas id="ipoPriceChart"></canvas></div></div>
+    </div>
+  </section>
+
+  <!-- 视图：新股资讯 -->
+  <section class="view" id="view-iponews">
+    <div class="view-head">
+      <div>
+        <h1>新股资讯</h1>
+        <p class="view-sub">聚合在发与待发新股的相关新闻，含标题、发布时间与摘要</p>
+      </div>
+      <div class="card-tools">
+        <div class="seg" id="ipnMarketSeg">
+          <button class="seg-item active" data-market="all">全部</button>
+          <button class="seg-item" data-market="hs">沪深</button>
+          <button class="seg-item" data-market="hk">港股</button>
+        </div>
+        <input class="input input-sm" id="ipnSearch" placeholder="搜索标题 / 来源 / 股票">
+      </div>
+    </div>
+    <div id="ipnStockView"></div>
+    <div id="ipnDefault">
+      <div class="kpi-row" id="ipnKpis"></div>
+      <div class="grid grid-2 grid-news">
+        <div class="card">
+          <div class="card-head">
+            <h2>资讯流</h2>
+            <span class="card-sub" id="ipnSubtitle"></span>
+          </div>
+          <div id="ipnFeed" class="news-feed"></div>
+        </div>
+        <div>
+          <div class="card">
+            <div class="card-head"><h2>资讯热度榜</h2><span class="card-sub">点击股票名查看该股全部资讯</span></div>
+            <div id="ipnHotStocks" class="list-mini"></div>
+          </div>
+          <div class="card">
+            <div class="card-head"><h2>在发新股</h2><span class="card-sub">资讯覆盖标的</span></div>
+            <div id="ipnStocks" class="chip-row"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 视图：股票列表 -->
+  <section class="view" id="view-stocks">
+    <div class="view-head">
+      <div>
+        <h1>股票列表</h1>
+        <p class="view-sub">按宽基指数 / 申万行业 / 热门概念 / 港股等维度分类浏览，点击任意股票进入其财报整理界面</p>
+      </div>
+      <div class="card-tools">
+        <input class="input input-sm" id="stkFilter" placeholder="在本分类中筛选名称 / 代码">
+        <select class="input input-sm" id="stkSort">
+          <option value="changePct-desc">按涨跌幅降序</option>
+          <option value="changePct-asc">按涨跌幅升序</option>
+          <option value="marketCap-desc">按市值降序</option>
+          <option value="turnoverRate-desc">按换手率降序</option>
+          <option value="code-asc">按代码升序</option>
+        </select>
+      </div>
+    </div>
+    <div class="card catalog-card">
+      <div class="card-head">
+        <h2>分类导航</h2>
+        <div class="seg seg-sm" id="stkDimSeg"></div>
+      </div>
+      <div id="stkDimHint" class="dim-hint"></div>
+      <div id="stkGroups" class="catalog-groups"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2 id="stkListTitle">股票列表</h2>
+        <span class="card-sub" id="stkListSub"></span>
+      </div>
+      <div id="stkStats" class="stat-strip"></div>
+      <div id="stkMockNote"></div>
+      <div id="stkTable" class="table-wrap"></div>
+      <div id="stkPager" class="pager"></div>
+    </div>
+  </section>
+
+  <!-- 视图：推荐榜单 -->
+  <section class="view" id="view-recommend">
+    <div class="view-head">
+      <div>
+        <h1>推荐榜单</h1>
+        <p class="view-sub">多口径量化榜单，每只股票附可溯源的推荐理由与风险提示</p>
+      </div>
+      <div class="card-tools">
+        <input class="input input-sm" id="rcFilter" placeholder="在本榜单中筛选名称 / 代码">
+        <button class="btn btn-ghost" id="rcRefresh">刷新榜单</button>
+      </div>
+    </div>
+    <div class="board-tabs" id="rcBoards"></div>
+    <div class="card" id="rcIntro"></div>
+    <div id="rcSummary" class="stat-strip" style="margin-bottom:12px"></div>
+    <div id="rcList" class="rec-list"></div>
+  </section>
+
+  <!-- 视图：AI 选股指南 -->
+  <section class="view" id="view-picker">
+    <div class="view-head">
+      <div>
+        <h1>AI 选股指南</h1>
+        <p class="view-sub">每日自动分析推荐买入标的 · 持仓持续判读卖出信号 · 自选与交易记录管理</p>
+      </div>
+      <div class="seg" id="pkSeg">
+        <button class="seg-item active" data-tab="daily">今日推荐</button>
+        <button class="seg-item" data-tab="holdings">持仓分析</button>
+        <button class="seg-item" data-tab="manage">自选与持仓</button>
+      </div>
+    </div>
+
+    <div id="pkDaily">
+      <div class="card" id="pkProfileCard" style="margin-bottom:16px">
+        <div class="card-head">
+          <h2>激进度选择</h2>
+          <span class="card-sub">不同档位生成差异化的推荐方案，可随时切换</span>
+        </div>
+        <div class="seg" id="pkProfileSeg" style="margin:4px 0 10px">
+          <button class="seg-item" data-profile="conservative">保守型</button>
+          <button class="seg-item active" data-profile="balanced">稳健型</button>
+          <button class="seg-item" data-profile="aggressive">进取型</button>
+        </div>
+        <div id="pkProfileIntro" class="dim-hint"></div>
+      </div>
+      <div class="kpi-row" id="pkKpis"></div>
+      <div class="card">
+        <div class="card-head">
+          <h2>今日买入推荐</h2>
+          <div class="card-tools">
+            <span class="card-sub" id="pkDailyMeta"></span>
+            <button class="btn btn-sm btn-primary" id="pkRerun">立即重新分析</button>
+          </div>
+        </div>
+        <div id="pkFunnel"></div>
+        <div id="pkList" class="rec-list"></div>
+      </div>
+    </div>
+
+    <div id="pkHoldings" hidden>
+      <div class="kpi-row" id="pkHKpis"></div>
+      <div class="card">
+        <div class="card-head">
+          <h2>持仓持续分析</h2>
+          <div class="card-tools">
+            <span class="card-sub" id="pkHMeta"></span>
+            <button class="btn btn-sm btn-ghost" id="pkHRefresh">重新分析</button>
+          </div>
+        </div>
+        <div id="pkHList"></div>
+      </div>
+    </div>
+
+    <div id="pkManage" hidden>
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-head">
+            <h2>自选股</h2>
+            <div class="card-tools">
+              <input class="input input-sm" id="pkWatchInput" placeholder="代码或名称，如 sh600036 / 招商银行">
+              <button class="btn btn-sm btn-primary" id="pkWatchAdd">加入自选</button>
+            </div>
+          </div>
+          <div id="pkWatchList" class="table-wrap"></div>
+        </div>
+        <div class="card">
+          <div class="card-head">
+            <h2>持仓列表</h2>
+            <button class="btn btn-sm btn-primary" id="pkHoldAdd">新增持仓</button>
+          </div>
+          <div id="pkHoldingsList" class="table-wrap"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head">
+          <h2>交易记录</h2>
+          <div class="card-tools">
+            <span class="card-sub">买入 / 卖出默认同步更新持仓</span>
+            <button class="btn btn-sm btn-primary" id="pkTxAdd">记一笔交易</button>
+            <button class="btn btn-sm btn-ghost" id="pkTxRebuild" title="按全部交易记录回放重建持仓，会覆盖手工持仓">按交易重建持仓</button>
+          </div>
+        </div>
+        <div id="pkTxList" class="table-wrap"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 视图：全球行情（贵金属 + 外汇） -->
+  <section class="view" id="view-gmarkets">
+    <div class="view-head">
+      <div>
+        <h1>全球行情</h1>
+        <p class="view-sub">贵金属现货与主要货币对的实时价格、走势图表与波动情况</p>
+      </div>
+      <div class="seg" id="gmSeg">
+        <button class="seg-item active" data-tab="metals">贵金属</button>
+        <button class="seg-item" data-tab="forex">外汇</button>
+      </div>
+    </div>
+    <div id="gmMetals">
+      <div class="kpi-row" id="gmMetalKpis"></div>
+      <div class="grid grid-2">
+        <div class="card">
+          <div class="card-head"><h2>黄金 · 历史走势</h2><span class="card-sub" id="gmGoldSub"></span></div>
+          <div class="chart-box h240"><canvas id="gmGoldChart"></canvas></div>
+        </div>
+        <div class="card">
+          <div class="card-head"><h2>白银 · 历史走势</h2><span class="card-sub" id="gmSilverSub"></span></div>
+          <div class="chart-box h240"><canvas id="gmSilverChart"></canvas></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>品种明细</h2><span class="card-sub">现货报价实时；历史走势为境内跟踪基金代理口径</span></div>
+        <div id="gmMetalTable" class="table-wrap"></div>
+      </div>
+    </div>
+    <div id="gmForex" hidden>
+      <div class="kpi-row" id="gmFxKpis"></div>
+      <div id="gmFxGroups"></div>
+      <div class="card" id="gmFxTrendCard" hidden>
+        <div class="card-head">
+          <h2 id="gmFxTrendTitle">走势详情</h2>
+          <span class="card-sub" id="gmFxTrendSub"></span>
+        </div>
+        <div class="chart-box h260"><canvas id="gmFxChart"></canvas></div>
+        <div id="gmFxTrendStats" class="stat-strip" style="margin-top:12px"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 视图：国际形势金融分析 -->
+  <section class="view" id="view-worlddesk">
+    <div class="view-head">
+      <div>
+        <h1>国际形势金融分析</h1>
+        <p class="view-sub">全球市场快照 · 最新国际政治经济动态 · 规则化影响分析（每条结论引用真实新闻标题）</p>
+      </div>
+      <button class="btn btn-ghost" id="wdRefresh">刷新分析</button>
+    </div>
+    <div class="kpi-row" id="wdKpis"></div>
+    <div class="card">
+      <div class="card-head">
+        <h2>国际主题影响分析</h2>
+        <span class="card-sub" id="wdToneSub"></span>
+      </div>
+      <div id="wdTone" class="stat-strip" style="margin-bottom:12px"></div>
+      <div id="wdThemes" class="wd-themes"></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2>国际要闻流</h2>
+        <span class="card-sub" id="wdNewsSub"></span>
+      </div>
+      <div id="wdNews" class="news-mini"></div>
+    </div>
+  </section>
+
+  <!-- 视图：财报整理 -->
+  <section class="view" id="view-finance">
+    <div class="view-head">
+      <div>
+        <h1>财报整理</h1>
+        <p class="view-sub">结构化归集三大报表，支持多期趋势追踪与多公司横向对比</p>
+      </div>
+      <div class="seg" id="finModeSeg">
+        <button class="seg-item active" data-mode="single">单公司分析</button>
+        <button class="seg-item" data-mode="compare">多公司对比</button>
+        <button class="seg-item" data-mode="calendar">披露日历</button>
+      </div>
+    </div>
+
+    <div class="card search-card">
+      <div class="search-row">
+        <div class="search-input-wrap">
+          <input class="input" id="finSearch" placeholder="输入股票名称或代码，如 贵州茅台 / sh600519">
+          <div class="suggest" id="finSuggest" hidden></div>
+        </div>
+        <button class="btn btn-primary" id="finSearchBtn">搜索</button>
+        <button class="btn btn-ghost" id="finPickWatch">载入自选股</button>
+      </div>
+      <div class="chip-row" id="finChips"></div>
+    </div>
+
+    <div id="finSingle"></div>
+    <div id="finCompare" hidden></div>
+    <div id="finCalendar" hidden></div>
+  </section>
+
+  <!-- 视图：市场分析 -->
+  <section class="view" id="view-market">
+    <div class="view-head">
+      <div>
+        <h1>市场分析</h1>
+        <p class="view-sub">多维度行情统计与趋势研判，一键生成结构化分析报告</p>
+      </div>
+      <button class="btn btn-primary" id="mkReport">生成分析报告</button>
+    </div>
+    <div class="kpi-row" id="mkKpis"></div>
+    <div class="card"><div class="card-head"><h2>指数行情</h2><span class="card-sub" id="mkIdxTime"></span></div><div id="mkIndices" class="table-wrap"></div></div>
+    <div class="grid grid-2">
+      <div class="card"><div class="card-head"><h2>市场画像雷达</h2><span class="card-sub">13 维度 0-5 分</span></div><div class="chart-box h340"><canvas id="mkRadarChart"></canvas></div></div>
+      <div class="card"><div class="card-head"><h2>涨跌幅区间分布</h2><span class="card-sub">家数</span></div><div class="chart-box h340"><canvas id="mkDistChart"></canvas></div></div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2>板块轮动</h2>
+        <div class="seg seg-sm" id="mkSectorSeg">
+          <button class="seg-item active" data-st="changePct-desc">行业涨幅榜</button>
+          <button class="seg-item" data-st="mainNetInflow-desc">主力净流入榜</button>
+          <button class="seg-item" data-st="changePct-asc">行业跌幅榜</button>
+          <button class="seg-item" data-st="kind-concept">概念板块榜</button>
+        </div>
+      </div>
+      <div id="mkSectors" class="table-wrap"></div>
+    </div>
+    <div class="grid grid-2">
+      <div class="card">
+        <div class="card-head"><h2>热搜股票</h2><span class="card-sub">点击名称进入该股财报详情</span></div>
+        <div id="mkHotStocks" class="list-mini"></div>
+      </div>
+      <div class="card">
+        <div class="card-head"><h2>热门板块</h2><span class="card-sub">按热度排序</span></div>
+        <div id="mkHotSectors" class="list-mini"></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-head">
+        <h2>市场要闻</h2>
+        <div class="card-tools">
+          <span class="card-sub" id="mkNewsMeta"></span>
+          <div class="seg seg-sm" id="mkNewsSort">
+            <button class="seg-item active" data-sort="hot">按热度</button>
+            <button class="seg-item" data-sort="time">按时间</button>
+          </div>
+          <button class="btn btn-sm btn-ghost" id="mkNewsRefresh">刷新要闻</button>
+        </div>
+      </div>
+      <div id="mkNewsCats" class="news-cats"></div>
+      <div id="mkNewsBody"></div>
+    </div>
+    <div class="card" id="mkReportCard" hidden>
+      <div class="card-head"><h2>分析报告</h2><div class="card-tools">
+        <button class="btn btn-sm btn-primary" id="mkExportHtml">导出 HTML 报告</button>
+        <button class="btn btn-sm btn-ghost" id="mkDownloadJson">下载 JSON</button>
+      </div></div>
+      <div id="mkReportBody" class="report-body"></div>
+    </div>
+  </section>
+
+  <!-- 视图：附录 -->
+  <section class="view" id="view-appendix">
+    <div class="view-head">
+      <div>
+        <h1>附录</h1>
+        <p class="view-sub">全文专业术语解释与评分依据说明 · 编号可相互引用</p>
+      </div>
+      <div class="card-tools">
+        <input class="input input-sm" id="apxSearch" placeholder="检索术语 / 评分项 / 编号">
+        <button class="btn btn-sm btn-ghost" id="apxExpandAll">全部展开</button>
+        <button class="btn btn-sm btn-ghost" id="apxCollapseAll">全部收起</button>
+      </div>
+    </div>
+    <div class="apx-layout">
+      <aside class="card apx-toc" id="apxToc"></aside>
+      <div class="apx-main" id="apxMain"></div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ 通知中心抽屉 ============ -->
+<div class="drawer-mask" id="drawerMask" hidden></div>
+<aside class="drawer" id="drawer">
+  <div class="drawer-head">
+    <h2>通知中心</h2>
+    <button class="btn btn-icon" id="drawerClose">✕</button>
+  </div>
+  <div class="drawer-tabs">
+    <button class="dtab active" data-filter="all">全部</button>
+    <button class="dtab" data-filter="unread">未读 <span class="tab-count" id="unreadCount">0</span></button>
+    <button class="dtab" data-filter="subs">订阅管理</button>
+  </div>
+  <div class="drawer-body" id="drawerBody"></div>
+  <div class="drawer-foot">
+    <button class="btn btn-sm btn-ghost" id="btnMarkAll">全部标记已读</button>
+    <button class="btn btn-sm btn-ghost" id="btnClearRead">清除已读</button>
+    <button class="btn btn-sm btn-primary" id="btnScanNow">立即巡检</button>
+  </div>
+</aside>
+
+<!-- ============ 全局提示 ============ -->
+<div class="toast-wrap" id="toastWrap"></div>
+<div class="loading-mask" id="loadingMask" hidden><div class="spinner"></div><div class="loading-text" id="loadingText">加载中…</div></div>
+
+<script src="/vendor/chart.umd.js"></script>
+<script src="/js/api.js"></script>
+<script src="/js/ui.js"></script>
+<script src="/js/notify.js"></script>
+<script src="/js/modules/overview.js"></script>
+<script src="/js/modules/ipo.js"></script>
+<script src="/js/modules/iponews.js"></script>
+<script src="/js/modules/stocks.js"></script>
+<script src="/js/modules/recommend.js"></script>
+<script src="/js/modules/picker.js"></script>
+<script src="/js/modules/gmarkets.js"></script>
+<script src="/js/modules/worlddesk.js"></script>
+<script src="/js/modules/finance.js"></script>
+<script src="/js/modules/market.js"></script>
+<script src="/js/modules/appendix.js"></script>
+<script src="/js/app.js"></script>
+</body>
+</html>
