@@ -76,7 +76,12 @@
         <div class="kpi-foot">${(d.hotStocks[0] || {}).newsCount ? `相关资讯 ${d.hotStocks[0].newsCount} 条` : '暂无'}</div>
       </div>`);
 
-    setHtml('ipnSubtitle', `共 ${d.total} 条 · 更新于 ${new Date(d.updatedAt).toLocaleTimeString('zh-CN')}`);
+    const ps = d.perfStats || {};
+    const seg = [];
+    if (ps.surge) seg.push(`暴涨 ${ps.surge} 只`);
+    if (ps.break) seg.push(`破发 ${ps.break} 只`);
+    if (ps.pending) seg.push(`${ps.pending} 只未上市`);
+    setHtml('ipnSubtitle', `共 ${d.total} 条${seg.length ? ` · ${seg.join(' / ')}` : ''} · 更新于 ${new Date(d.updatedAt).toLocaleTimeString('zh-CN')}`);
   }
 
   function renderHot(d) {
@@ -126,6 +131,21 @@
     bindFeedChips('#ipnFeed');
   }
 
+  /**
+   * 上市表现（暴涨 / 破发）的展示片段。
+   * 仅 status==='ready' 时才展开整句结论；数据缺失（pending / unknown）只显示低对比度标签，
+   * 既不出现空白，也不会被误读成看空。
+   */
+  function perfTagHtml(p) {
+    if (!p) return '';
+    return `<span class="tag ${p.tagTone || 'tag-muted'} perf-tag" title="${esc(p.text || p.reason || '')}">${esc(p.tag || p.label || '待判定')}</span>`;
+  }
+
+  function perfLineHtml(p) {
+    if (!p || p.status !== 'ready') return '';
+    return `<p class="ni-perf ${p.cls || 'dim'}">${esc(p.text || '')}</p>`;
+  }
+
   /** 单条资讯卡片（默认视图与个股视图共用） */
   function newsItemHtml(x) {
     return `
@@ -138,9 +158,11 @@
         ${x.summary
           ? `<p class="ni-summary">${esc(x.summary)}</p>`
           : `<p class="ni-summary ni-summary-empty">该条资讯暂未获取到正文摘要</p>`}
+        ${perfLineHtml(x.perf)}
         <div class="ni-foot">
           ${x.name ? `<span class="chip chip-mini clickable" data-code="${esc(x.codeFull || x.code)}" data-name="${esc(x.name)}"
               title="查看该股全部资讯">${esc(x.name)} · ${esc(x.code)}</span>` : ''}
+          ${perfTagHtml(x.perf)}
           ${x.stage ? tag(x.stage, x.tone || 'muted') : ''}
           ${x.marketLabel ? `<span class="dim" style="font-size:11.5px">${esc(x.marketLabel)}</span>` : ''}
           ${x.subscribeStart ? `<span class="dim" style="font-size:11.5px">申购 ${esc(x.subscribeStart)}</span>` : ''}
@@ -222,7 +244,9 @@
           <div class="snq-item"><span class="l">总市值</span><span class="v">${cnAmount(d.marketCap === null ? null : d.marketCap * 1e8)}</span></div>
           <div class="snq-item"><span class="l">相关资讯</span><span class="v">${fmtInt(d.total)} 条</span></div>
           <div class="snq-item"><span class="l">含摘要</span><span class="v">${fmtInt(d.withSummary)} 条</span></div>
+          ${d.perf && d.perf.status === 'ready' ? `<div class="snq-item"><span class="l">上市表现</span><span class="v ${d.perf.cls}">${esc(d.perf.label)}${d.perf.latestPct !== null && d.perf.latestPct !== undefined ? ` ${pct(d.perf.latestPct)}` : ''}</span></div>` : ''}
         </div>
+        ${d.perf && d.perf.status === 'ready' ? `<p class="snq-note">上市表现：${esc(d.perf.text)}</p>` : ''}
         ${kw ? `<p class="snq-filter">当前在 ${list.length} 条结果中筛选关键词「${esc(kw)}」</p>` : ''}
       </div>
       <div class="card">
