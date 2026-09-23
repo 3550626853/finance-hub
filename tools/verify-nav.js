@@ -124,6 +124,8 @@ const FIN_SNAP = `JSON.stringify({
 
     // ---------- 3. 新股资讯「资讯热度榜」→ 列出该股全部资讯 ----------
     await nav('#iponews', 15000);
+    // 热度榜依赖多源资讯抓取（冷启动可达 10s+），轮询等待而非固定 sleep
+    await waitFor(`!!document.querySelector('#ipnHotStocks .lm-item')`, 60000);
     const hotRaw = await evalv(`(() => {
       const el = document.querySelector('#ipnHotStocks .lm-item');
       return el ? JSON.stringify({ code: el.dataset.code, name: el.dataset.name }) : null;
@@ -417,7 +419,14 @@ const FIN_SNAP = `JSON.stringify({
     ];
     for (const d of DIMS) {
       await nav(`#stocks?dim=${d.dim}`, 8000);
-      const loaded = await waitFor(`document.querySelectorAll('#stkTable tr.row-click').length > 0`, 70000);
+      // 必须等待「内容真正切换」：仅等 rows>0 会在上一维度的旧 DOM 上立即通过（假通过）
+      const loaded = await waitFor(`(() => {
+        const seg = document.querySelector('#stkDimSeg .seg-item.active');
+        if (!seg || seg.dataset.dim !== '${d.dim}') return false;
+        if (document.querySelectorAll('#stkTable tr.row-click').length === 0) return false;
+        ${d.mock ? "if (!document.querySelector('#stkMockNote .dim-hint')) return false;" : ''}
+        return true;
+      })()`, 70000);
       const st = JSON.parse(await evalv(`JSON.stringify({
         activeDim: (document.querySelector('#stkDimSeg .seg-item.active')||{}).dataset
           ? document.querySelector('#stkDimSeg .seg-item.active').dataset.dim : null,
@@ -436,13 +445,20 @@ const FIN_SNAP = `JSON.stringify({
       if (d.mock) {
         check(st.mockNote, `股票列表[${d.label}]：模拟数据提示条已展示`, `note=${st.mockNote}`);
         check(st.codes.every((c) => /^hk\d{5}$/.test(c)), `股票列表[${d.label}]：代码为规范 hk 前缀形态`, `codes=${st.codes.join(',')}`);
-        // 模拟数据下的排序与刷新应正常工作（切序后必须等首行内容真正变化，而非行数>0）
-        await evalv(`(() => { const s = document.getElementById('stkSort'); s.value = 'changePct-asc'; s.dispatchEvent(new Event('change', {bubbles:true})); return true; })()`);
-        const firstBefore = await evalv(`(document.querySelector('#stkTable tr.row-click td:nth-child(6)')||{}).textContent || ''`);
-        const ascReady = await waitFor(`(document.querySelector('#stkTable tr.row-click td:nth-child(6)')||{}).textContent !== ${JSON.stringify(firstBefore)} || parseFloat((document.querySelector('#stkTable tr.row-click td:nth-child(6)')||{}).textContent) < 0`, 45000);
-        const chg = JSON.parse(await evalv(`JSON.stringify(Array.from(document.querySelectorAll('#stkTable tr.row-click')).slice(0,3).map(tr => tr.querySelectorAll('td')[5].textContent.trim()))`));
-        const nums = chg.map((t) => parseFloat(t));
-        check(ascReady && nums.every((v, i) => i === 0 || nums[i - 1] <= v), `股票列表[${d.label}]：切换升序后涨跌幅单调递增`, `前3=${chg.join(',')}`);
+        // 模拟数据下的排序与刷新应正常工作：轮询直到「升序真正生效」，
+        // 中途若未生效则补发一次 change（页面首次加载与排序可能竞争）
+        const setSortAsc = `(() => { const s = document.getElementById('stkSort'); s.value = 'changePct-asc'; s.dispatchEvent(new Event('change', {bubbles:true})); return true; })()`;
+        await evalv(setSortAsc);
+        let sortedOk = false;
+        let chg = [];
+        for (let i = 0; i < 30; i++) {
+          chg = JSON.parse(await evalv(`JSON.stringify(Array.from(document.querySelectorAll('#stkTable tr.row-click')).slice(0,3).map(tr => tr.querySelectorAll('td')[5].textContent.trim()))`));
+          const nums = chg.map((t) => parseFloat(t));
+          if (nums.length >= 3 && nums.every((v, j) => j === 0 || nums[j - 1] <= v)) { sortedOk = true; break; }
+          if (i === 6) await evalv(setSortAsc);
+          await sleep(1500);
+        }
+        check(sortedOk, `股票列表[${d.label}]：切换升序后涨跌幅单调递增`, `前3=${chg.join(',')}`);
         await evalv(`(() => { const b = document.getElementById('btnRefresh'); b.click(); return true; })()`);
         await waitFor(`document.querySelectorAll('#stkTable tr.row-click').length > 0`, 40000);
         check(true, `股票列表[${d.label}]：刷新后列表正常`, '');
@@ -488,6 +504,9 @@ const FIN_SNAP = `JSON.stringify({
     const watchTextGone = await evalv(`!/自选股技术诊断|加入自选|自选股为空|输入代码加入自选/.test((document.getElementById('view-market')||{}).innerText || '')`);
     check(watchTextGone, '市场分析：无自选股相关的界面文案残留', '');
 
+    // 市场要闻：冷启动需抓取 40 条要闻并逐条取正文摘要，必须先等加载完成（meta 不再是「正在加载」）
+    await waitFor(`document.querySelectorAll('#mkNewsCats .nc-chip').length >= 3
+      && !/正在加载/.test((document.getElementById('mkNewsMeta')||{}).textContent || '')`, 90000);
     // 市场要闻：分类标签 + 重点要闻 + 更多要闻 + 时间分组
     const news = JSON.parse(await evalv(`JSON.stringify({
       cats: document.querySelectorAll('#mkNewsCats .nc-chip').length,
@@ -589,6 +608,24 @@ const FIN_SNAP = `JSON.stringify({
     // 自选股 innerText 字段在 gone 里仅作组件探测，不再用于文案断言
     const hasDisclaimer = await evalv(`!!document.querySelector('#pkList .rec-disclaimer')`);
     check(hasDisclaimer, 'AI 选股：免责声明展示', '');
+
+    // 激进度切换：选中态（图标）必须立即跟随，且来回切换都正确
+    const activeProfile = () => evalv(`(() => {
+      const el = document.querySelector('#pkProfileSeg .seg-item.active');
+      return el && el.dataset ? el.dataset.profile : null;
+    })()`);
+    const clickProfile = (p) => evalv(`(() => { document.querySelector('#pkProfileSeg .seg-item[data-profile="${p}"]').click(); return true; })()`);
+    for (const p of ['conservative', 'aggressive', 'balanced', 'conservative']) {
+      await clickProfile(p);
+      // 选中态应即时生效（不等待数据加载）
+      await waitFor(`(() => {
+        const el = document.querySelector('#pkProfileSeg .seg-item.active');
+        return !!el && el.dataset.profile === '${p}';
+      })()`, 8000);
+      const act = await activeProfile();
+      check(act === p, `AI 选股：切换到「${p}」后选中态图标随之更新`, `active=${act} 期望=${p}`);
+      await waitFor(`document.querySelectorAll('#pkList .pk-card').length >= 3`, 60000);
+    }
 
     // 切换到持仓分析
     await evalv(`(() => { document.querySelector('#pkSeg .seg-item[data-tab="holdings"]').click(); return true; })()`);
