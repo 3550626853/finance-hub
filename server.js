@@ -16,6 +16,7 @@ const CATALOG = require('./lib/catalog');
 const RECOMMEND = require('./lib/recommend');
 const GM = require('./lib/global-markets');
 const WORLD = require('./lib/worlddesk');
+const TERMS = require('./lib/terms');
 const P = require('./lib/picker');
 const { APPENDIX } = require('./lib/appendix');
 
@@ -198,6 +199,33 @@ const routes = [
   ['GET', /^\/api\/ipo\/news$/, async (m, q) => S.ipoNewsModule({
     market: q.market || 'all', limit: Number(q.limit) || 30, detailTop: Number(q.detail) || 14,
   })],
+  // 单只新股的上市表现（暴涨 / 破发）判定，供调试与个股视图按需查询
+  ['GET', /^\/api\/ipo\/perf$/, async (m, q) => {
+    if (!q.code) return { ok: false, error: '缺少 code 参数' };
+    const code = S.normalizeNewsCode(q.code);
+    const t = { code, codeFull: code, name: q.name || null, inIpoCalendar: false };
+    if (q.listingDate) {
+      const issue = W.toNum(q.price);
+      Object.assign(t, {
+        listingDate: q.listingDate, priceMid: issue, priceLow: issue, priceHigh: issue,
+        priceText: q.price || null, inIpoCalendar: true,
+      });
+    } else {
+      // 未显式指定发行信息时，回落到新股日历匹配（命中缓存）
+      const map = await S.ipoAllMarkets(['hs', 'hk']).catch(() => ({}));
+      Object.values(map).forEach((mod) => (mod.list || []).forEach((x) => {
+        if (t.inIpoCalendar) return;
+        if (String(x.codeFull) === code || String(x.code) === code) {
+          Object.assign(t, {
+            name: t.name || x.name, market: x.market, listingDate: x.listingDate,
+            priceMid: x.priceMid, priceLow: x.priceLow, priceHigh: x.priceHigh,
+            priceText: x.priceText, inIpoCalendar: true,
+          });
+        }
+      }));
+    }
+    return S.analyzeIpoPerformance(t);
+  }],
 
   // ---- 模块五：股票列表（分类） ----
   ['GET', /^\/api\/stocks\/catalog$/, async () => CATALOG.stockCatalog()],
@@ -225,6 +253,8 @@ const routes = [
 
   // ---- 附录：术语解释 + 评分依据 ----
   ['GET', /^\/api\/appendix$/, async () => APPENDIX],
+  // ---- 统一术语索引（全站术语跳转的单一数据源）----
+  ['GET', /^\/api\/terms$/, async () => TERMS.buildTermIndex()],
 
   // ---- 模块二：财报整理 ----
   ['GET', /^\/api\/finance\/search$/, async (m, q) => {
