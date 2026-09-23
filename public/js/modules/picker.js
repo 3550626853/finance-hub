@@ -8,11 +8,16 @@
   // ============================================================
   // 入口
   // ============================================================
+  /** 同步激进度选项的选中态（选中图标 / 高亮胶囊必须跟随 state.profile） */
+  function syncProfileSeg() {
+    $$('#pkProfileSeg .seg-item').forEach((b) => b.classList.toggle('active', b.dataset.profile === state.profile));
+  }
+
   async function render(sub) {
     bindOnce();
     if (sub && ['daily', 'holdings', 'manage'].includes(sub)) state.tab = sub;
     $$('#pkSeg .seg-item').forEach((b) => b.classList.toggle('active', b.dataset.tab === state.tab));
-    $$('#pkProfileSeg .seg-item').forEach((b) => b.classList.toggle('active', b.dataset.profile === state.profile));
+    syncProfileSeg();
     $('#pkDaily').hidden = state.tab !== 'daily';
     $('#pkHoldings').hidden = state.tab !== 'holdings';
     $('#pkManage').hidden = state.tab !== 'manage';
@@ -530,6 +535,9 @@
         if (state.profile === b.dataset.profile) return;
         state.profile = b.dataset.profile;
         try { localStorage.setItem('fh.picker.profile', state.profile); } catch (_) { /* ignore */ }
+        // 选中态（图标）必须立即跟随，再异步加载该档位数据；
+        // 此前只在 render() 里同步，而本处理直接调 renderDaily() 绕过了它，导致图标不切换
+        syncProfileSeg();
         renderDaily();
       });
     });
