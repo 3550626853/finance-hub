@@ -196,5 +196,26 @@
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
   else boot();
 
-  window.App = { go, refresh, openStock, openStockByName, openIpoNews };
+  /**
+   * 仅切换视图显隐、不重新渲染（供术语跳转「返回正文」使用，即时无网络等待）。
+   * 原视图 DOM 仍在文档中（视图只是 hidden），因此可直接恢复。
+   * @returns {boolean} 恢复成功返回 true；目标视图从未渲染过则返回 false（调用方回退到 go()）
+   */
+  function restore(view, sub, params) {
+    const el = document.getElementById(`view-${view}`);
+    if (!el) return false;
+    const renderedBefore = state.rendered.has(buildHash(view, sub || null, params));
+    if (!renderedBefore && !el.textContent.trim()) return false;
+
+    state.view = view;
+    state.sub = sub || null;
+    state.params = params || {};
+    state.lastKey = buildHash(view, state.sub, state.params);
+    $$('#mainNav .nav-item').forEach((b) => b.classList.toggle('active', b.dataset.view === view));
+    $$('.view').forEach((v) => v.classList.toggle('active', v.id === `view-${view}`));
+    setHash(view, state.sub, state.params);
+    return true;
+  }
+
+  window.App = { go, refresh, restore, openStock, openStockByName, openIpoNews, state };
 })();
