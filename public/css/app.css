@@ -654,6 +654,18 @@ tr.row-click:hover .link-cell { text-decoration: underline; }
 }
 .ni-summary-empty { color: var(--muted); font-style: normal; background: #fafbfd; }
 .ni-foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* 上市表现（暴涨 / 破发）结论行 */
+.ni-perf {
+  margin: 0; font-size: 12.5px; line-height: 1.65; color: var(--ink-2);
+  background: #fbfcfe; border-left: 3px solid #d7dfec;
+  padding: 7px 12px; border-radius: 0 var(--r-sm) var(--r-sm) 0;
+}
+.ni-perf.up { border-left-color: var(--up); color: var(--up); background: var(--up-soft); }
+.ni-perf.down { border-left-color: var(--down); color: var(--down); background: var(--down-soft); }
+.ni-perf.flat { color: var(--ink-2); }
+.ni-perf.dim { color: var(--muted); background: #fafbfd; }
+.perf-tag { cursor: help; }
 .chip-mini {
   padding: 2px 9px; font-size: 11.5px; border-radius: 12px; cursor: pointer;
   background: var(--primary-soft); color: var(--primary); border: 1px solid #dbe6ff; font-weight: 600;
@@ -663,6 +675,42 @@ tr.row-click:hover .link-cell { text-decoration: underline; }
 /* ---------- 股票列表 ---------- */
 .catalog-card { padding-bottom: 16px; }
 .dim-hint { font-size: 12.5px; color: var(--muted); margin-bottom: 12px; }
+
+/* ---------------- 术语跳转链接（正文标注） ---------------- */
+.term-link {
+  display: inline; padding: 0 1px; margin: 0; border: 0;
+  background: none; font: inherit; color: inherit;
+  cursor: pointer; border-radius: 3px;
+  border-bottom: 1px dashed var(--primary);
+  transition: background-color .15s, color .15s;
+}
+.term-link:hover { color: var(--primary); background: var(--primary-soft); border-bottom-style: solid; }
+.term-link:focus-visible { outline: 2px solid var(--primary); outline-offset: 1px; background: var(--primary-soft); }
+.term-link:active { background: var(--primary-soft); }
+/* 返回正文后对原术语短暂闪烁，便于确认位置 */
+.term-flash { animation: termFlash 1.8s ease-out; border-radius: 3px; }
+@keyframes termFlash {
+  0% { background: rgba(37, 99, 235, .28); }
+  100% { background: transparent; }
+}
+/* 附录顶部的「返回正文」条（可逆跳转） */
+.apx-back-bar {
+  position: sticky; top: 0; z-index: 6;
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 0 0 12px; padding: 9px 12px;
+  background: var(--primary-soft); border: 1px solid var(--primary);
+  border-radius: var(--r);
+}
+@media (prefers-reduced-motion: reduce) {
+  .term-flash { animation: none; background: rgba(37, 99, 235, .22); }
+}
+@media (max-width: 760px) {
+  /* 移动端：加大点击热区，避免虚线下划线过密 */
+  .term-link { padding: 1px 2px; border-bottom-width: 1.5px; }
+  .apx-back-bar { position: static; }
+}
+/* 锚点定位时避开吸顶头部，目标不被遮挡 */
+.apx-item, .apx-part, .apx-group { scroll-margin-top: 84px; }
 
 /* ---------------- 主营业务卡片（财报整理） ---------------- */
 .biz-points { margin: 0 0 12px; padding: 0; list-style: none; display: flex; flex-direction: column; gap: 6px; }
