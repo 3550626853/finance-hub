@@ -38,6 +38,7 @@
     ipoNews: (opt) => request(`/api/ipo/news?${qs(opt || {})}`),
     stockNews: (opt) => request(`/api/ipo/news/stock?${qs(opt || {})}`),
     appendix: () => request('/api/appendix'),
+    terms: () => request('/api/terms'),
 
     stockCatalog: () => request('/api/stocks/catalog'),
     stockList: (opt) => request(`/api/stocks/list?${qs(opt || {})}`),
