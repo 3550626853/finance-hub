@@ -1,7 +1,7 @@
 @echo off
 chcp 65001 >nul
 title 金融信息聚合平台 - 手机可访问模式
-setlocal
+setlocal enabledelayedexpansion
 
 set "NODE_BIN=C:\Users\huang\.workbuddy\binaries\node\versions\22.22.2-3\node.exe"
 if not exist "%NODE_BIN%" set "NODE_BIN=node"
@@ -34,6 +34,14 @@ echo    首次启动如弹出防火墙提示，请勾选「专用网络」并允
 echo    停止服务：按 Ctrl+C
 echo  ============================================================
 echo.
+
+rem 生成手机访问二维码并打开（依赖缺失时静默跳过，不影响启动）
+if defined LANIP (
+  set "PY_BIN=C:\Users\huang\.workbuddy\binaries\python\envs\default\Scripts\python.exe"
+  if not exist "!PY_BIN!" set "PY_BIN=python"
+  "!PY_BIN!" "%~dp0tools\gen-qr.py" "http://%LANIP%:%PORT%" "%~dp0preview\手机访问二维码.png"
+  if exist "%~dp0preview\手机访问二维码.png" start "" "%~dp0preview\手机访问二维码.png"
+)
 
 start "" "http://127.0.0.1:%PORT%"
 "%NODE_BIN%" server.js --port=%PORT%
