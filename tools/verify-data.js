@@ -266,6 +266,26 @@ const get = async (p) => (await (await fetch(BASE + p)).json()).data;
   ok(costItem && Math.abs((100 - costItem.pctOfRev) - biz.structure.grossMargin) < 0.5, `毛利率自洽：100% − 营业成本占比 = 毛利率（${(100 - costItem.pctOfRev).toFixed(2)} vs ${biz.structure.grossMargin}）`, '不自洽');
   ok(/未提供分产品/.test(biz.segmentNote || ''), '明确声明分业务收入明细缺失（不虚构占比）', '');
 
+  // ---------- 16. 统一术语索引（全站术语跳转） ----------
+  console.log('\n【16】统一术语索引（术语跳转数据源）');
+  const ti = await get('/api/terms');
+  const apxA = await get('/api/appendix');
+  const aCount = (apxA.parts || []).filter((p) => p.no === 'A')[0].categories.reduce((k, c) => k + c.items.length, 0);
+  ok(ti.total === aCount, `术语索引条目数与附录 A 一致（${ti.total} = ${aCount}）`, `index=${ti.total} appendix=${aCount}`);
+  const nos = new Set((apxA.parts || []).flatMap((p) => (p.categories || p.groups || []).flatMap((g) => g.items.map((i) => i.no))));
+  ok(ti.terms.every((t) => nos.has(t.no)), '索引条目编号均在附录中存在', `异常: ${ti.terms.filter((t) => !nos.has(t.no)).map((t) => t.no)}`);
+  ok(ti.terms.every((t) => (t.aliases || []).length > 0), '每个术语至少有一个匹配别名', `空别名: ${ti.terms.filter((t) => !(t.aliases || []).length).map((t) => t.no)}`);
+  ok(ti.terms.every((t) => (t.aliases || []).every((a) => a.length >= 2)), '别名长度均 ≥2（避免误伤正文）', '');
+  // 唯一性：任意别名只指向一个条目（无跳转歧义）
+  const owner = new Map(); const dup = [];
+  ti.terms.forEach((t) => (t.aliases || []).forEach((a) => {
+    if (owner.has(a) && owner.get(a) !== t.no) dup.push(`${a}→${owner.get(a)}/${t.no}`);
+    owner.set(a, t.no);
+  }));
+  ok(dup.length === 0, '别名与词条一一对应（无跳转歧义）', `冲突: ${dup.slice(0, 3).join(', ')}`);
+  ok(Array.isArray(ti.dropped), '索引返回被丢弃的冲突别名（便于维护）', `dropped=${(ti.dropped || []).length}`);
+  ok(/lib\/appendix\.js/.test(ti.maintenance || '') && /EXTRA_ALIASES/.test(ti.maintenance || ''), '索引声明维护位置（术语本体 + 别名表）', '');
+
   console.log(`\n================ 结果：通过 ${pass} 项，失败 ${fail} 项 ================`);
   process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error('校验失败:', e.message); process.exit(1); });
